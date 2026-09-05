@@ -16,17 +16,44 @@ function calcDistance(lat1, lng1, lat2, lng2) {
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
+function getCards() {
+  return JSON.parse(localStorage.getItem('infraCards') || '{}');
+}
+
+function collectCard(spotId) {
+  const cards = getCards();
+  const today = new Date().toISOString().slice(0, 10);
+  if (cards[spotId]) {
+    cards[spotId].visitCount++;
+    cards[spotId].lastVisit = today;
+  } else {
+    cards[spotId] = { visitCount: 1, firstVisit: today, lastVisit: today };
+  }
+  localStorage.setItem('infraCards', JSON.stringify(cards));
+}
+
+function showMsg(text, duration = 2500) {
+  const el = document.getElementById('explore-msg');
+  el.textContent = text;
+  el.classList.remove('hidden');
+  clearTimeout(el._timer);
+  el._timer = setTimeout(() => el.classList.add('hidden'), duration);
+}
+
 function buildPopup(spot, currentPos) {
   const mapsUrl = `https://www.google.com/maps?q=${spot.lat},${spot.lng}`;
   const mapsLink = `<a href="${mapsUrl}" target="_blank">Googleマップで見る</a>`;
+  const cardData = getCards()[spot.id];
 
-  if (!currentPos) {
-    return `<b>${spot.name}</b><br>${spot.category}<br>${spot.description}<br><br>${mapsLink}`;
+  let statusSection = '';
+  if (currentPos) {
+    const dist = Math.round(calcDistance(currentPos.lat, currentPos.lng, spot.lat, spot.lng));
+    statusSection = dist <= UNLOCK_RADIUS
+      ? (cardData ? `<br>✅ 取得済み（${cardData.visitCount}回訪問）` : `<br>🔍 探索ボタンでカードを取得できます`)
+      : `<br>📍 ここまで ${dist}m`;
   }
 
-  const dist = Math.round(calcDistance(currentPos.lat, currentPos.lng, spot.lat, spot.lng));
-  const status = dist <= UNLOCK_RADIUS ? '✅ 範囲内！スタンプ取得可能' : `📍 ここまで ${dist}m`;
-  return `<b>${spot.name}</b><br>${spot.category}<br>${spot.description}<br><br>${status}<br>${mapsLink}`;
+  return `<b>${spot.name}</b><br>${spot.category}<br>${spot.description}<br>${statusSection}<br>${mapsLink}`;
 }
 
 const posIcon = L.divIcon({
@@ -58,7 +85,30 @@ fetch('data/spots.json')
     });
   });
 
-// 地図クリックで仮の現在地を設定（デバッグ用）
+// 探索ボタン
+document.getElementById('explore-btn').addEventListener('click', () => {
+  if (!currentPos) {
+    showMsg('まず地図をクリックして現在地を設定してください');
+    return;
+  }
+  const nearby = spots.filter(spot =>
+    calcDistance(currentPos.lat, currentPos.lng, spot.lat, spot.lng) <= UNLOCK_RADIUS
+  );
+  if (nearby.length === 0) {
+    showMsg('近くにスポットがありません');
+    return;
+  }
+  const cards = getCards();
+  const newSpots = nearby.filter(s => !cards[s.id]);
+  nearby.forEach(spot => collectCard(spot.id));
+  updatePopups();
+  if (newSpots.length > 0) {
+    showMsg(`📋 カードを取得！：${newSpots.map(s => s.name).join('、')}`);
+  } else {
+    showMsg(`✅ 訪問記録を更新しました（${nearby.map(s => s.name).join('、')}）`);
+  }
+});
+
 map.on('click', e => {
   currentPos = { lat: e.latlng.lat, lng: e.latlng.lng };
   if (posMarker) posMarker.remove();
