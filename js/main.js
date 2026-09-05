@@ -16,6 +16,45 @@ function calcDistance(lat1, lng1, lat2, lng2) {
   return R * 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
 }
 
+// アイテム取得
+let citiesData = {};
+fetch('data/cities.json').then(r => r.json()).then(d => { citiesData = d; });
+
+function getItems() {
+  return JSON.parse(localStorage.getItem('infraItems') || '{}');
+}
+
+function dropItem(cityName) {
+  const pool = citiesData[cityName];
+  if (!pool || pool.length === 0) return null;
+  const items = getItems();
+  const available = pool.filter(item => !items[item]);
+  if (available.length === 0) return null;
+  const item = available[Math.floor(Math.random() * available.length)];
+  items[item] = { city: cityName, date: new Date().toISOString().slice(0, 10) };
+  localStorage.setItem('infraItems', JSON.stringify(items));
+  return item;
+}
+
+function muniCdToCity(muniCd) {
+  const code = parseInt(muniCd);
+  if (code >= 34101 && code <= 34108) return '広島市';
+  const map = {
+    34202: '呉市', 34203: '竹原市', 34204: '三原市', 34205: '尾道市',
+    34207: '福山市', 34208: '府中市', 34209: '三次市', 34210: '庄原市',
+    34211: '大竹市', 34212: '東広島市', 34213: '廿日市市', 34214: '安芸高田市',
+    34215: '江田島市', 34462: '世羅町', 34545: '神石高原町'
+  };
+  return map[code] || null;
+}
+
+async function getCityName(lat, lng) {
+  const res = await fetch(`https://mreversegeocoder.gsi.go.jp/reverse-geocoder/LonLatToAddress?lat=${lat}&lon=${lng}`);
+  const data = await res.json();
+  if (!data.results?.muniCd) return null;
+  return muniCdToCity(data.results.muniCd);
+}
+
 function getCards() {
   return JSON.parse(localStorage.getItem('infraCards') || '{}');
 }
@@ -86,7 +125,7 @@ fetch('data/spots.json')
   });
 
 // 探索ボタン
-document.getElementById('explore-btn').addEventListener('click', () => {
+document.getElementById('explore-btn').addEventListener('click', async () => {
   if (!currentPos) {
     showMsg('まず地図をクリックして現在地を設定してください');
     return;
@@ -94,18 +133,33 @@ document.getElementById('explore-btn').addEventListener('click', () => {
   const nearby = spots.filter(spot =>
     calcDistance(currentPos.lat, currentPos.lng, spot.lat, spot.lng) <= UNLOCK_RADIUS
   );
-  if (nearby.length === 0) {
-    showMsg('近くにスポットがありません');
-    return;
+
+  const messages = [];
+
+  // カード取得
+  if (nearby.length > 0) {
+    const cards = getCards();
+    const newSpots = nearby.filter(s => !cards[s.id]);
+    nearby.forEach(spot => collectCard(spot.id));
+    updatePopups();
+    if (newSpots.length > 0) {
+      messages.push(`📋 カード取得：${newSpots.map(s => s.name).join('、')}`);
+    }
   }
-  const cards = getCards();
-  const newSpots = nearby.filter(s => !cards[s.id]);
-  nearby.forEach(spot => collectCard(spot.id));
-  updatePopups();
-  if (newSpots.length > 0) {
-    showMsg(`📋 カードを取得！：${newSpots.map(s => s.name).join('、')}`);
+
+  // アイテムドロップ
+  const cityName = await getCityName(currentPos.lat, currentPos.lng);
+  if (cityName) {
+    const item = dropItem(cityName);
+    if (item) messages.push(`🎁 ${cityName}のアイテム取得：${item}`);
+  }
+
+  if (messages.length > 0) {
+    showMsg(messages.join('\n'), 3500);
+  } else if (nearby.length === 0) {
+    showMsg('近くに施設スポットがありません');
   } else {
-    showMsg(`✅ 訪問記録を更新しました（${nearby.map(s => s.name).join('、')}）`);
+    showMsg('新しい発見はありませんでした');
   }
 });
 

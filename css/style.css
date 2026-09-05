@@ -91,6 +91,36 @@ body.collection header {
   opacity: 0.8;
 }
 
+.tab-bar {
+  display: flex;
+  background: white;
+  border-bottom: 2px solid #e0e0e0;
+  flex-shrink: 0;
+}
+
+.tab-btn {
+  flex: 1;
+  padding: 12px;
+  border: none;
+  background: none;
+  font-size: 0.9rem;
+  cursor: pointer;
+  color: #999;
+  border-bottom: 3px solid transparent;
+  margin-bottom: -2px;
+}
+
+.tab-btn.active {
+  color: #2c6e49;
+  border-bottom-color: #2c6e49;
+  font-weight: bold;
+}
+
+.item-icon {
+  font-size: 2rem;
+  margin-bottom: 4px;
+}
+
 .card-grid {
   display: grid;
   grid-template-columns: repeat(auto-fill, minmax(140px, 1fr));
