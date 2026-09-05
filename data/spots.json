@@ -1,0 +1,20 @@
+[
+  {
+    "id": "bridge-001",
+    "name": "仮スポット：橋A",
+    "category": "橋",
+    "lat": 34.3966,
+    "lng": 132.4596,
+    "description": "仮データ。DoboXデータで差し替え予定。",
+    "collected": false
+  },
+  {
+    "id": "bridge-002",
+    "name": "仮スポット：橋B",
+    "category": "橋",
+    "lat": 34.3900,
+    "lng": 132.4650,
+    "description": "仮データ。DoboXデータで差し替え予定。",
+    "collected": false
+  }
+]
