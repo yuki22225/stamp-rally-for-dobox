@@ -264,3 +264,44 @@ body.home {
   border-radius: 32px;
   text-decoration: none;
 }
+
+/* ミニチュアARページ */
+body.ar-page header a {
+  color: white;
+}
+
+#viewer {
+  flex: 1;
+  width: 100%;
+  background: #eef2ee;
+}
+
+.ar-btn {
+  position: absolute;
+  bottom: 24px;
+  right: 24px;
+  background: #2c6e49;
+  color: white;
+  border: none;
+  border-radius: 50px;
+  padding: 14px 24px;
+  font-size: 1rem;
+  font-weight: bold;
+  box-shadow: 0 4px 12px rgba(0,0,0,0.3);
+}
+
+.ar-msg {
+  padding: 12px 16px;
+  text-align: center;
+}
+
+.ar-msg.hidden {
+  display: none;
+}
+
+.ar-credit {
+  font-size: 0.7rem;
+  color: #666;
+  padding: 6px 12px;
+  flex-shrink: 0;
+}

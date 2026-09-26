@@ -1,0 +1,25 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>ミニチュアAR | インフラツーリズム for dobox</title>
+  <link rel="stylesheet" href="css/style.css">
+  <script type="module" src="https://ajax.googleapis.com/ajax/libs/model-viewer/4.3.1/model-viewer.min.js"></script>
+</head>
+<body class="ar-page">
+  <header>
+    <h1 id="spot-name">ミニチュアAR</h1>
+    <p><a href="map.html">← 地図へ戻る</a></p>
+  </header>
+  <model-viewer id="viewer" alt="スポット周辺のミニチュア模型"
+    ar ar-modes="webxr scene-viewer quick-look" ar-placement="floor"
+    camera-controls touch-action="pan-y" camera-orbit="30deg 55deg auto"
+    shadow-intensity="1" exposure="1">
+    <button slot="ar-button" class="ar-btn">ARで置いてみる</button>
+  </model-viewer>
+  <p id="ar-msg" class="ar-msg hidden"></p>
+  <footer class="ar-credit">出典：<a href="https://maps.gsi.go.jp/development/ichiran.html" target="_blank">国土地理院</a>（標高タイル・シームレス空中写真）を加工して作成</footer>
+  <script src="js/ar.js"></script>
+</body>
+</html>
