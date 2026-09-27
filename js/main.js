@@ -8,7 +8,7 @@ L.tileLayer('https://cyberjapandata.gsi.go.jp/xyz/pale/{z}/{x}/{y}.png', {
 const UNLOCK_RADIUS = 100;
 
 // 3D模型があるスポット（models/ にファイルを作ったらここに追加する）
-const MODEL_SPOTS = ['facility-014'];
+const MODEL_SPOTS = ['facility-014', 'facility-033', 'facility-039', 'facility-001', 'facility-003'];
 
 function calcDistance(lat1, lng1, lat2, lng2) {
   const R = 6371000;
