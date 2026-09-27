@@ -7,6 +7,9 @@ L.tileLayer('https://cyberjapandata.gsi.go.jp/xyz/pale/{z}/{x}/{y}.png', {
 
 const UNLOCK_RADIUS = 100;
 
+// 3D模型があるスポット（models/ にファイルを作ったらここに追加する）
+const MODEL_SPOTS = ['facility-014'];
+
 function calcDistance(lat1, lng1, lat2, lng2) {
   const R = 6371000;
   const rad = Math.PI / 180;
@@ -92,7 +95,11 @@ function buildPopup(spot, currentPos) {
       : `<br>📍 ここまで ${dist}m`;
   }
 
-  return `<b>${spot.name}</b><br>${spot.category}<br>${spot.description}<br>${statusSection}<br>${mapsLink}`;
+  const arLink = MODEL_SPOTS.includes(spot.id)
+    ? `<br><a href="ar.html?id=${spot.id}">🏞️ 3Dで見る</a>`
+    : '';
+
+  return `<b>${spot.name}</b><br>${spot.category}<br>${spot.description}<br>${statusSection}<br>${mapsLink}${arLink}`;
 }
 
 const posIcon = L.divIcon({
