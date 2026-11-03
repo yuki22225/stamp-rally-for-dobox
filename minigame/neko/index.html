@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="ja">
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+<title>千光寺の猫 避難大作戦</title>
+<link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Zen+Maru+Gothic:wght@500;700;900&display=swap">
+<style>
+* { margin: 0; padding: 0; box-sizing: border-box; }
+/* 地形の地図を中央に大きく置く1画面のゲーム。雨雲の藍に、魚と猫の橙を差す */
+:root {
+  color-scheme: dark;
+  --ink: #16242c;
+  --panel: #203640;
+  --line: #466270;
+  --text: #f5f1e7;
+  --muted: #bccbd0;
+  --accent: #f2a24a;
+  --accent-ink: #2a1a08;
+  --safe: #8fd19e;
+  --font: "Zen Maru Gothic", "Hiragino Maru Gothic ProN", "Yu Gothic", sans-serif;
+}
+[hidden] { display: none !important; }
+html, body { height: 100%; }
+body { background: var(--ink); color: var(--text); font-family: var(--font); font-weight: 500; display: grid; grid-template-columns: minmax(0, 1fr); grid-template-rows: auto minmax(0, 1fr) auto; overflow: hidden; }
+.bar { display: flex; flex-wrap: wrap; gap: 4px 14px; align-items: baseline; padding-block: 8px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); }
+.home-link { color: var(--muted); font-size: 13px; text-decoration: none; }
+h1 { font-size: 16px; font-weight: 900; margin-right: auto; }
+.stat { font-size: 14px; font-variant-numeric: tabular-nums; }
+.stat b { font-size: 19px; font-weight: 900; color: var(--accent); }
+main { position: relative; min-height: 0; display: grid; place-items: center; overflow: hidden; }
+canvas { display: block; touch-action: none; cursor: pointer; }
+.sheet { position: absolute; inset: 0; display: grid; place-items: center; background: rgba(22, 36, 44, .86); padding: 12px max(16px, env(safe-area-inset-right, 0px)) 12px max(16px, env(safe-area-inset-left, 0px)); overflow-y: auto; }
+.card { max-width: 480px; width: 100%; display: grid; gap: 10px; line-height: 1.65; font-size: 15px; }
+.card h2 { font-size: 24px; font-weight: 900; line-height: 1.3; text-wrap: balance; }
+.card ul { padding-left: 1.3em; display: grid; gap: 4px; }
+.card small { color: var(--muted); font-size: 12.5px; }
+.tools { background: var(--panel); border-top: 1px solid var(--line); padding-block: 8px; padding-left: max(16px, env(safe-area-inset-left, 0px)); padding-right: max(16px, env(safe-area-inset-right, 0px)); display: grid; gap: 2px; }
+#msg { font-size: 14px; line-height: 1.5; min-height: 1.5em; }
+small.credit { font-size: 11px; color: var(--muted); line-height: 1.5; }
+button { font: inherit; font-weight: 900; font-size: 16px; color: var(--accent-ink); background: var(--accent); border: 1px solid var(--accent); border-radius: 8px; padding: 9px 18px; cursor: pointer; justify-self: start; }
+button:focus-visible { outline: 2px solid var(--text); outline-offset: 2px; }
+</style>
+
+<div class="bar">
+  <a class="home-link" href="../../index.html">← ホーム</a>
+  <h1>千光寺の猫 避難大作戦</h1>
+  <span class="stat">のこり <b id="time">150</b> 秒</span>
+  <span class="stat">雨 <b id="rain">小雨</b></span>
+  <span class="stat">避難 <b id="safeCount">0</b> / 3 匹</span>
+</div>
+<main>
+  <canvas id="map" aria-label="千光寺まわりの地図。猫と避難所が表示される"></canvas>
+  <div class="sheet" id="startSheet">
+    <div class="card">
+      <h2>大雨が来る前に、猫たちを避難所へ</h2>
+      <ul>
+        <li>地図の道をタップすると、<b>魚</b>を置けます。匂いに気づいた猫が近づきます。</li>
+        <li>魚でつないで、<b>緑の避難所</b>まで3匹を連れていきましょう。灰色の避難所は、土砂災害の対象に登録されていません。</li>
+        <li>避難所にカーソルを当てると、何の災害の避難所か分かります。スマホではタップしてください。</li>
+        <li>雨が強くなると、土砂災害の区域の道から順に通れなくなります。</li>
+      </ul>
+      <small>のんびり屋はよく眠り、気まぐれ屋はよそ見します。食いしん坊は足が速いです。</small>
+      <button id="start" type="button">はじめる</button>
+    </div>
+  </div>
+  <div class="sheet" id="endSheet" hidden>
+    <div class="card">
+      <h2 id="endTitle"></h2>
+      <ul id="endList"></ul>
+      <p id="endNote"></p>
+      <small>これはゲームです。本物の大雨のときは、猫を探しに外へ出ず、市の情報を確かめて、まず自分が早めに避難してください。</small>
+      <button id="again" type="button">もう一度</button>
+    </div>
+  </div>
+</main>
+<div class="tools">
+  <div id="msg" role="status" aria-live="polite">地図と避難所を読み込んでいます…</div>
+  <small class="credit">地形・土砂災害区域・避難所：広島県 DoboX ／ 道：© OpenStreetMap contributors ／ 緑の避難所は土砂災害の対象のもの</small>
+</div>
+
+<script>
+const $ = id => document.getElementById(id);
+const say = t => { $('msg').textContent = t; };
+const cv = $('map'), ctx = cv.getContext('2d');
+const calm = matchMedia('(prefers-reduced-motion: reduce)').matches;
+const DURATION = 150, STAGE_AT = [0, 50, 100], STAGE_NAME = ['小雨', '大雨', '豪雨'];
+const SMELL = { 'のんびり': 300, '食いしん坊': 420, '気まぐれ': 300 };
+const SPEED = { 'のんびり': 15, '食いしん坊': 24, '気まぐれ': 18 };
+const COAT = { 'のんびり': ['#c9c3b6', '#6b665c'], '食いしん坊': ['#f5a24b', '#a85f17'], '気まぐれ': ['#3a3a3f', '#f4f1e8'] };
+let D = null, adj = [], relief = null, W = 1, H = 1, DPR = 1, scale = 1;
+let G = null, mapDrawn = null;
+
+// ------ 道 ------
+const closed = (e, stage) => (stage >= 1 && e.zone === 2) || (stage >= 2 && e.zone >= 1);
+function route(from, to, stage) {
+  const n = D.nodes.length, dist = new Float64Array(n).fill(Infinity), prev = new Int32Array(n).fill(-1);
+  const heap = [[0, from]]; dist[from] = 0;
+  const push = it => { heap.push(it); let i = heap.length - 1; while (i > 0) { const p = (i - 1) >> 1; if (heap[p][0] <= heap[i][0]) break; [heap[p], heap[i]] = [heap[i], heap[p]]; i = p; } };
+  const pop = () => { const top = heap[0], last = heap.pop(); if (heap.length) { heap[0] = last; let i = 0; for (;;) { let m = i; const l = 2 * i + 1, r = l + 1; if (l < heap.length && heap[l][0] < heap[m][0]) m = l; if (r < heap.length && heap[r][0] < heap[m][0]) m = r; if (m === i) break; [heap[m], heap[i]] = [heap[i], heap[m]]; i = m; } } return top; };
+  while (heap.length) {
+    const [d, u] = pop();
+    if (u === to) break;
+    if (d > dist[u]) continue;
+    for (const e of adj[u]) {
+      if (closed(e, stage)) continue;
+      const nd = d + e.w * (e.kind === 2 ? 3 : e.kind === 3 ? 1.3 : 1);
+      if (nd < dist[e.to]) { dist[e.to] = nd; prev[e.to] = u; push([nd, e.to]); }
+    }
+  }
+  if (dist[to] === Infinity) return null;
+  const path = [];
+  for (let u = to; u !== -1 && u !== from; u = prev[u]) path.push(u);
+  return path.reverse();
+}
+function nearestNode(x, y) {
+  let best = 0, bd = Infinity;
+  D.nodes.forEach((p, i) => { const d = (p[0] - x) ** 2 + (p[1] - y) ** 2; if (d < bd) { bd = d; best = i; } });
+  return best;
+}
+
+// ------ ゲームの状態 ------
+function newGame() {
+  G = {
+    t: 0, stage: 0, fish: null, over: false, started: true,
+    cats: D.cats.map(c => ({ kind: c.kind, place: c.place, node: c.node, x: D.nodes[c.node][0], y: D.nodes[c.node][1], path: [], nap: 0, napIn: 6 + Math.random() * 6, look: 3 + Math.random() * 5, safeAt: null, lost: false, dir: 1, phase: Math.random() * 6 })),
+    rain: Array.from({ length: 140 }, () => [Math.random(), Math.random(), .5 + Math.random() * .5]),
+  };
+  $('startSheet').hidden = true; $('endSheet').hidden = true;
+  say('道をタップして魚を置きましょう。まず猫の近くへ。');
+  updateStats();
+}
+function aim(cat) {
+  if (!G.fish || cat.safeAt) return;
+  const [fx, fy] = D.nodes[G.fish];
+  if (Math.hypot(cat.x - fx, cat.y - fy) > SMELL[cat.kind]) { cat.path = []; cat.lost = false; return; }
+  const p = route(cat.node, G.fish, G.stage);
+  cat.path = p || []; cat.lost = !p;
+}
+function placeFish(node) {
+  G.fish = node; G.cats.forEach(aim);
+  const n = G.cats.filter(c => !c.safeAt && c.path.length).length;
+  const blocked = G.cats.some(c => !c.safeAt && c.lost);
+  say(blocked ? 'この魚まで行ける道がない猫がいます。ほかの道を探しましょう。' : n ? `${n}匹が魚の匂いに気づきました。` : '魚が遠すぎて、猫が気づきません。もっと近くへ。');
+}
+function setStage(s) {
+  G.stage = s;
+  say(s === 1 ? '大雨になりました。土砂災害特別警戒区域の道が通れません。' : '豪雨です。土砂災害警戒区域の道も通れません。急いで！');
+  G.cats.forEach(aim);
+}
+function step(dt) {
+  if (!G || G.over) return;
+  G.t += dt;
+  const s = STAGE_AT.filter(v => G.t >= v).length - 1;
+  if (s !== G.stage) setStage(s);
+  for (const c of G.cats) {
+    c.phase += dt * 6;
+    if (c.safeAt) continue;
+    if (c.nap > 0) { c.nap -= dt; continue; }
+    if (c.kind === 'のんびり') { c.napIn -= dt; if (c.napIn <= 0) { c.nap = 1.8; c.napIn = 8 + Math.random() * 6; continue; } }
+    if (c.kind === '気まぐれ') { c.look -= dt; if (c.look <= 0) { c.nap = 1.1; c.look = 6 + Math.random() * 6; const open = adj[c.node].filter(e => !closed(e, G.stage)); if (open.length) { const e = open[Math.floor(Math.random() * open.length)]; c.x = D.nodes[e.to][0]; c.y = D.nodes[e.to][1]; c.node = e.to; aim(c); } continue; } }
+    let left = SPEED[c.kind] * dt;
+    while (left > 0 && c.path.length) {
+      const nx = c.path[0], [tx, ty, tz] = D.nodes[nx], z0 = D.nodes[c.node][2];
+      const dist = Math.hypot(tx - c.x, ty - c.y);
+      const e = adj[c.node].find(a => a.to === nx);
+      const slow = (e && e.kind === 3 ? .78 : 1) * (e && (tz - z0) / Math.max(e.w, 1) > .08 ? .72 : 1);
+      const can = left * slow;
+      if (Math.abs(tx - c.x) > .5) c.dir = tx > c.x ? 1 : -1;
+      if (dist <= can) { c.x = tx; c.y = ty; c.node = nx; c.path.shift(); left -= dist / slow; }
+      else { c.x += (tx - c.x) / dist * can; c.y += (ty - c.y) / dist * can; left = 0; }
+    }
+    for (const sh of D.shelters) {
+      if (Math.hypot(sh.x - c.x, sh.y - c.y) <= 55 || c.node === sh.node) { c.safeAt = sh.name; c.path = []; say(`${c.kind}の猫が${sh.name}に着きました！`); break; }
+    }
+  }
+  updateStats();
+  if (G.cats.every(c => c.safeAt) || G.t >= DURATION) finish();
+}
+function updateStats() {
+  $('time').textContent = Math.max(0, Math.ceil(DURATION - G.t));
+  $('rain').textContent = STAGE_NAME[G.stage];
+  $('safeCount').textContent = G.cats.filter(c => c.safeAt).length;
+}
+function finish() {
+  G.over = true;
+  const safe = G.cats.filter(c => c.safeAt);
+  $('endTitle').textContent = safe.length === 3 ? '全員避難できました！' : safe.length ? `${safe.length}匹が避難できました` : 'まだ外に猫たちがいます';
+  const list = $('endList'); list.textContent = '';
+  G.cats.forEach(c => { const li = document.createElement('li'); const at = D.shelters.find(s => s.name === c.safeAt); li.textContent = c.safeAt ? `${c.kind}の猫：${c.safeAt}（${typeText(at)}）` :`${c.kind}の猫：高い所で雨宿り中。もう一度迎えに行きましょう`; list.appendChild(li); });
+  const names = [...new Set(safe.map(c => c.safeAt))];
+  $('endNote').textContent = names.length ? `${names.join('、')}は、土砂災害の避難先として登録されている場所です。` : '早めに動くと、通れる道が多く残っています。';
+  $('endSheet').hidden = false;
+  say('');
+}
+
+// ------ 描く ------
+function resize() {
+  const r = cv.parentElement.getBoundingClientRect();
+  if (!D) return;
+  const a = D.width / D.height;
+  W = r.width; H = W / a;
+  if (H > r.height) { H = r.height; W = H * a; }
+  DPR = Math.min(2, devicePixelRatio || 1); scale = W / D.width;
+  cv.style.width = W + 'px'; cv.style.height = H + 'px'; cv.width = Math.round(W * DPR); cv.height = Math.round(H * DPR);
+  mapDrawn = null;
+}
+function baseMap(stage) {
+  const c = document.createElement('canvas'); c.width = cv.width; c.height = cv.height;
+  const g = c.getContext('2d'); g.setTransform(DPR * scale, 0, 0, DPR * scale, 0, 0);
+  g.drawImage(relief, 0, 0, D.width, D.height);
+  g.lineCap = 'round'; g.lineJoin = 'round';
+  const line = (filter, color, width, dash) => { g.strokeStyle = color; g.lineWidth = width / scale; g.setLineDash(dash ? dash.map(v => v / scale) : []); g.beginPath(); D.edges.forEach(e => { if (filter(e)) { const a = D.nodes[e[0]], b = D.nodes[e[1]]; g.moveTo(a[0], a[1]); g.lineTo(b[0], b[1]); } }); g.stroke(); };
+  line(e => true, 'rgba(255,255,255,.85)', 2.2);
+  line(e => e[2] === 2, 'rgba(250,226,160,.95)', 3.4);
+  line(e => e[3] === 1, 'rgba(232,178,52,.9)', 2.2);
+  line(e => e[3] === 2, 'rgba(219,84,84,.9)', 2.2);
+  const shut = e => (stage >= 1 && e[3] === 2) || (stage >= 2 && e[3] >= 1);
+  line(shut, 'rgba(60,18,18,.95)', 3.4, [4, 4]);
+  g.setLineDash([]);
+  return c;
+}
+function label(text, x, y, color) {
+  const px = x * scale, py = y * scale;
+  ctx.font = '700 12px "Zen Maru Gothic","Yu Gothic",sans-serif'; ctx.textAlign = 'center';
+  ctx.lineWidth = 3; ctx.strokeStyle = 'rgba(20,30,36,.85)'; ctx.strokeText(text, px, py); ctx.fillStyle = color || '#fff'; ctx.fillText(text, px, py);
+}
+const typeText = s => s.types.length ? s.types.join('・') : '種類の記載なし';
+function drawShelter(s, goal) {
+  const px = s.x * scale, py = s.y * scale, r = goal ? 9 : 6;
+  ctx.fillStyle = goal ? '#2f9e62' : '#7b8790'; ctx.strokeStyle = '#fff'; ctx.lineWidth = goal ? 2 : 1.5;
+  ctx.beginPath(); ctx.moveTo(px - r, py + r * .8); ctx.lineTo(px - r, py - r * .1); ctx.lineTo(px, py - r); ctx.lineTo(px + r, py - r * .1); ctx.lineTo(px + r, py + r * .8); ctx.closePath(); ctx.fill(); ctx.stroke();
+  if (goal && W > 520) label(s.name, s.x, s.y + 24 / scale, '#d8f7e2');
+}
+function drawLegend() {
+  const rows = [['#e8b234', [], '土砂災害警戒区域の道'], ['#db5454', [], '土砂災害特別警戒区域の道'], ['#3c1212', [4, 4], '通行止めの道']];
+  ctx.font = '700 12px "Zen Maru Gothic","Yu Gothic",sans-serif'; ctx.textAlign = 'left';
+  const w = Math.max(...rows.map(r => ctx.measureText(r[2]).width)) + 50, h = rows.length * 21 + 12;
+  const x = W - w - 8, y = H - h - 8;
+  ctx.fillStyle = 'rgba(245,241,231,.94)'; ctx.strokeStyle = 'rgba(22,36,44,.5)'; ctx.lineWidth = 1;
+  ctx.beginPath(); ctx.roundRect(x, y, w, h, 7); ctx.fill(); ctx.stroke();
+  rows.forEach(([color, dash, text], i) => {
+    const ly = y + 17 + i * 21;
+    ctx.strokeStyle = color; ctx.lineWidth = 3.4; ctx.setLineDash(dash); ctx.lineCap = 'round';
+    ctx.beginPath(); ctx.moveTo(x + 10, ly); ctx.lineTo(x + 36, ly); ctx.stroke(); ctx.setLineDash([]);
+    ctx.fillStyle = '#16242c'; ctx.fillText(text, x + 42, ly + 4);
+  });
+}
+function drawTip(s) {
+  const goal = D.shelters.includes(s), lines = [s.name, s.types.length ? `${typeText(s)}の避難所` : '避難の種類の記載なし'];
+  if (!goal) lines.push('土砂災害の対象に登録なし');
+  ctx.font = '700 13px "Zen Maru Gothic","Yu Gothic",sans-serif'; ctx.textAlign = 'left';
+  const w = Math.max(...lines.map(t => ctx.measureText(t).width)) + 18, h = lines.length * 19 + 10;
+  const x = Math.max(4, Math.min(W - w - 4, s.x * scale - w / 2));
+  const above = s.y * scale - h - 14, y = above < 4 ? s.y * scale + 14 : above;
+  ctx.fillStyle = 'rgba(22,36,44,.95)'; ctx.strokeStyle = goal ? '#8fd19e' : '#bccbd0'; ctx.lineWidth = 1.5;
+  ctx.beginPath(); ctx.roundRect(x, y, w, h, 7); ctx.fill(); ctx.stroke();
+  lines.forEach((t, i) => { ctx.fillStyle = i ? '#f5f1e7' : goal ? '#8fd19e' : '#d5dee2'; ctx.fillText(t, x + 9, y + 20 + i * 19); });
+}
+function shelterAt(x, y) {
+  let best = null, bd = 22 / scale;
+  D.shelters.concat(D.others || []).forEach(s => { const d = Math.hypot(s.x - x, s.y - y); if (d < bd) { bd = d; best = s; } });
+  return best;
+}
+function sayShelter(s) {
+  const goal = D.shelters.includes(s);
+  const kind = s.types.length ? `${typeText(s)}の避難所` : '避難の種類の記載なし';
+  say(`${s.name}：${kind}。${goal ? '猫のゴールです' : '土砂災害の対象に登録されていないので、猫のゴールではありません'}`);
+}
+function drawCat(c) {
+  const px = c.x * scale, py = c.y * scale, r = 11, [coat, mark] = COAT[c.kind];
+  const bob = c.path.length && !calm ? Math.abs(Math.sin(c.phase)) * 2.5 : 0;
+  ctx.save(); ctx.translate(px, py - bob); ctx.scale(c.dir, 1);
+  ctx.lineWidth = 2; ctx.strokeStyle = '#201c18'; ctx.fillStyle = coat;
+  ctx.beginPath(); ctx.moveTo(-r * .85, -r * .3); ctx.lineTo(-r * .75, -r * 1.2); ctx.lineTo(-r * .15, -r * .8); ctx.lineTo(r * .15, -r * .8); ctx.lineTo(r * .75, -r * 1.2); ctx.lineTo(r * .85, -r * .3); ctx.arc(0, 0, r * .9, -.25, Math.PI + .25); ctx.closePath(); ctx.fill(); ctx.stroke();
+  ctx.fillStyle = mark === '#f4f1e8' ? '#f4f1e8' : '#201c18';
+  if (c.nap > 0 && c.kind === 'のんびり') { ctx.strokeStyle = ctx.fillStyle; ctx.beginPath(); ctx.arc(-r * .36, -r * .05, 2.4, 0, Math.PI); ctx.moveTo(r * .36 + 2.4, -r * .05); ctx.arc(r * .36, -r * .05, 2.4, 0, Math.PI); ctx.stroke(); }
+  else { ctx.beginPath(); ctx.arc(-r * .36, -r * .05, 1.8, 0, 7); ctx.arc(r * .36, -r * .05, 1.8, 0, 7); ctx.fill(); }
+  ctx.restore();
+  if (c.nap > 0 && c.kind === 'のんびり') label('zzz', c.x, c.y - 18 / scale, '#fff');
+  else if (c.lost) label('？', c.x, c.y - 18 / scale, '#ffd9a0');
+  if (c.safeAt) label('安全', c.x, c.y - 18 / scale, '#d8f7e2');
+}
+function drawFish(n) {
+  const [x, y] = D.nodes[n], px = x * scale, py = y * scale, pulse = calm ? 1 : 1 + Math.sin(performance.now() / 180) * .12;
+  ctx.save(); ctx.translate(px, py); ctx.scale(pulse, pulse);
+  ctx.fillStyle = '#f2a24a'; ctx.strokeStyle = '#3a2108'; ctx.lineWidth = 2;
+  ctx.beginPath(); ctx.ellipse(1, 0, 10, 6, 0, 0, 7); ctx.moveTo(-8, 0); ctx.lineTo(-15, -6); ctx.lineTo(-15, 6); ctx.closePath(); ctx.fill(); ctx.stroke();
+  ctx.fillStyle = '#3a2108'; ctx.beginPath(); ctx.arc(6, -1.5, 1.3, 0, 7); ctx.fill();
+  ctx.restore();
+}
+function drawRain() {
+  if (!G || calm) return;
+  const count = [50, 95, 140][G.stage], len = [8, 13, 18][G.stage];
+  ctx.strokeStyle = 'rgba(214,232,240,.55)'; ctx.lineWidth = 1; ctx.beginPath();
+  for (let i = 0; i < count; i++) { const d = G.rain[i]; d[1] = (d[1] + .012 * d[2] * (G.stage + 1)) % 1; const x = d[0] * W, y = d[1] * H; ctx.moveTo(x, y); ctx.lineTo(x - len * .25, y + len); }
+  ctx.stroke();
+}
+let last = performance.now(), drawnStage = -1;
+function frame(now) {
+  const dt = Math.min(.05, (now - last) / 1000); last = now;
+  if (D && relief) {
+    if (G && !G.over) step(dt);
+    const stage = G ? G.stage : 0;
+    if (!mapDrawn || drawnStage !== stage) { mapDrawn = baseMap(stage); drawnStage = stage; }
+    ctx.setTransform(1, 0, 0, 1, 0, 0); ctx.drawImage(mapDrawn, 0, 0);
+    ctx.setTransform(DPR, 0, 0, DPR, 0, 0);
+    ctx.fillStyle = `rgba(20,34,46,${[.06, .2, .34][stage]})`; ctx.fillRect(0, 0, W, H);
+    (D.labels || []).forEach(l => label(l.name, l.x, l.y));
+    (D.others || []).forEach(s => drawShelter(s, false));
+    D.shelters.forEach(s => drawShelter(s, true));
+    if (G && G.fish != null) drawFish(G.fish);
+    (G ? G.cats : D.cats.map(c => ({ kind: c.kind, x: D.nodes[c.node][0], y: D.nodes[c.node][1], path: [], nap: 0, dir: 1, phase: 0 }))).forEach(drawCat);
+    drawRain();
+    drawLegend();
+    if (hovered) drawTip(hovered);
+  }
+  requestAnimationFrame(frame);
+}
+let hovered = null;
+cv.addEventListener('pointermove', e => {
+  if (e.pointerType === 'touch' || !D) return;
+  const r = cv.getBoundingClientRect();
+  hovered = shelterAt((e.clientX - r.left) / scale, (e.clientY - r.top) / scale);
+});
+cv.addEventListener('pointerleave', () => { hovered = null; });
+cv.addEventListener('pointerdown', e => {
+  if (!G || G.over) return;
+  const r = cv.getBoundingClientRect();
+  const x = (e.clientX - r.left) / scale, y = (e.clientY - r.top) / scale;
+  const n = nearestNode(x, y), p = D.nodes[n];
+  if (Math.hypot(p[0] - x, p[1] - y) > 90) { say('道の近くをタップしてください。'); return; }
+  placeFish(n);
+  const sh = shelterAt(x, y);
+  if (sh) sayShelter(sh);
+});
+$('start').addEventListener('click', newGame);
+$('again').addEventListener('click', newGame);
+addEventListener('resize', resize);
+
+async function boot() {
+  try {
+    const [d, img] = await Promise.all([fetch('data.json').then(r => r.json()), new Promise((ok, no) => { const i = new Image(); i.onload = () => ok(i); i.onerror = no; i.src = 'relief.jpg'; })]);
+    D = d; relief = img;
+    (D.others || []).filter(s => s.types.includes('土砂災害')).forEach(s => D.shelters.push({ ...s, node: nearestNode(s.x, s.y) }));
+    D.others = (D.others || []).filter(s => !s.types.includes('土砂災害'));
+    adj = D.nodes.map(() => []);
+    D.edges.forEach(([a, b, kind, zone, w]) => { adj[a].push({ to: b, kind, zone, w }); adj[b].push({ to: a, kind, zone, w }); });
+    resize();
+    say('準備ができました。「はじめる」を押してください。');
+  } catch { say('地図を読み込めませんでした。ページを開き直してください。'); }
+}
+boot();
+requestAnimationFrame(frame);
+</script>
+</html>
