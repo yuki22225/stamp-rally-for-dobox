@@ -109,6 +109,7 @@ const posIcon = L.divIcon({
   iconAnchor: [8, 8]
 });
 
+let appMode = 'rally';
 let currentPos = null;
 let posMarker = null;
 let spots = [];
@@ -125,7 +126,8 @@ fetch('data/spots.json')
   .then(data => {
     spots = data;
     spots.forEach(spot => {
-      const marker = L.marker([spot.lat, spot.lng]).addTo(map);
+      const marker = L.marker([spot.lat, spot.lng]);
+      if (appMode === 'rally') marker.addTo(map);
       marker.bindPopup(buildPopup(spot, null));
       spotMarkers.push(marker);
     });
@@ -171,7 +173,8 @@ document.getElementById('explore-btn').addEventListener('click', async () => {
 });
 
 map.on('click', e => {
-  currentPos = { lat: e.latlng.lat, lng: e.latlng.lng };
+  if (appMode !== 'rally') return;
+  currentPos ={ lat: e.latlng.lat, lng: e.latlng.lng };
   if (posMarker) posMarker.remove();
   posMarker = L.marker([currentPos.lat, currentPos.lng], { icon: posIcon })
     .addTo(map)

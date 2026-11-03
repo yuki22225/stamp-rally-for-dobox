@@ -9,13 +9,48 @@
 </head>
 <body>
   <header>
-    <h1>インフラツーリズム for dobox</h1>
-    <p>Stamp rally</p>
+    <div class="map-title-row">
+      <a href="index.html" class="back-btn">← ホーム</a>
+      <h1>インフラツーリズム for dobox</h1>
+    </div>
+    <div class="mode-tabs" role="group" aria-label="表示の切り替え">
+      <button type="button" class="mode-tab" data-mode="rally" aria-pressed="true">スタンプラリー</button>
+      <button type="button" class="mode-tab" data-mode="evac" aria-pressed="false">避難経路</button>
+    </div>
   </header>
   <div id="map"></div>
   <button id="explore-btn">探索</button>
   <div id="explore-msg" class="explore-msg hidden"></div>
+  <div id="evac-panel" class="evac-panel" hidden>
+    <p class="evac-title">何から避難しますか？</p>
+    <div class="evac-checks">
+      <label><input type="checkbox" class="evac-check" value="土砂災害">土砂災害</label>
+      <label><input type="checkbox" class="evac-check" value="洪水">洪水</label>
+      <label><input type="checkbox" class="evac-check" value="高潮">高潮</label>
+      <label><input type="checkbox" class="evac-check" value="津波">津波</label>
+      <label><input type="checkbox" class="evac-check" value="地震">地震</label>
+    </div>
+    <p id="evac-count" class="evac-count" role="status" aria-live="polite">何から避難するかを選んでください</p>
+    <div id="route-idle" class="route-box">
+      <button type="button" id="route-start" class="route-main" disabled>経路を引く</button>
+    </div>
+    <div id="route-draw" class="route-box" hidden>
+      <p id="route-status" class="route-status" role="status" aria-live="polite"></p>
+      <div class="route-actions">
+        <button type="button" id="route-undo">1つ戻す</button>
+        <button type="button" id="route-cancel">やめる</button>
+      </div>
+      <div id="route-save-box" class="route-save" hidden>
+        <label for="route-name">経路の名前</label>
+        <input type="text" id="route-name" maxlength="40">
+        <button type="button" id="route-save" class="route-main">お気に入りに保存</button>
+      </div>
+    </div>
+    <div id="route-list" class="route-list" hidden></div>
+    <p id="evac-note" class="evac-note">複数選ぶと、選んだすべてに対応する避難所を表示します。経路は自分で決めた参考で、実際に通れるとは限りません。一度歩いて確かめてください。経路はこの端末に保存します。「Googleマップで開く」を押すと位置がGoogleへ送られ、道はGoogleが選びます。避難所データ：広島県 DoboX。開設状況は市町の情報を確かめてください。</p>
+  </div>
   <script src="https://unpkg.com/leaflet@1.9.4/dist/leaflet.js"></script>
   <script src="js/main.js"></script>
+  <script src="js/evac.js"></script>
 </body>
 </html>
